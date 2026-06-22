@@ -36,6 +36,7 @@ params = {
     "N0": 300.0,  # initial YAN (mg/L) — adequate nitrogen
     "E0": 0.0,  # no ethanol at start
     "T": 14.0,  # fermentation temperature (°C)
+    "MNT": 0.05,  # g S / g X / h — simplified constant maintenance term for sugar consumption(the sugar consumption that is not directly related to growth, but rather to the maintenance of cellular functions. This term accounts for the energy and resources that the yeast cells need to maintain their viability and metabolic activity even when they are not actively growing. The maintenance term is important for long fermentations where the yeast may stop growing but still consume sugar for maintenance.)
 }
 
 
@@ -73,9 +74,11 @@ def rhs(t, y, p):  # t as time,y the state vector,p as the parameters
     # dervatives of the state variables
     dX = mu * X - p["kd"] * X
     dXt = mu * X
-    dS = -v_s * X
+    dS = (
+        -v_s * X - p["MNT"] * X
+    )  # the main sugar consumption is due to the yeast growth, but there is also a maintenance term that consumes sugar even when the yeast is not growing. This maintenance term is proportional to the biomass and has a rate constant MNT (maintenance rate). The maintenance term is important for long fermentations where the yeast may stop growing but still consume sugar for maintenance.
     dN = -p["Yxn"] * mu * X
-    dE = p["Yes"] * v_s * X
+    dE = p["Yes"] * (v_s + p["MNT"]) * X
 
     return [dX, dXt, dS, dN, dE]
 
@@ -83,7 +86,7 @@ def rhs(t, y, p):  # t as time,y the state vector,p as the parameters
 # so i will solve the system of equations using solve_ivp, which is a numerical integrator for ordinary differential equations (ODEs). This will allow us to simulate the fermentation process over time and observe how the state variables change.
 
 
-def run_simulation(p=params, t_end=300):
+def run_simulation(p=params, t_end=600):
     # t=0 to t_end hours
 
     y0 = [p["X0"], p["Xt0"], p["S0"], p["N0"], p["E0"]]  # initial state vector
@@ -126,7 +129,7 @@ def plot_simulation(sol):
 
     axes[1, 2].axis("off")  # κενό panel
     plt.tight_layout()
-    plt.savefig("results/figures/fermentation_simulation.png", dpi=150)
+    plt.savefig("results/figures/fermentation_simulation_with_maintenance.png", dpi=150)
     plt.show()
 
 
