@@ -1,6 +1,7 @@
 # because we know the rate of change we solve the system of equations using solve_ivp
 import numpy as np
 from scipy.integrate import solve_ivp
+
 import matplotlib.pyplot as plt
 
 # state vector :the numbers that we want to track during the simulation
@@ -16,23 +17,22 @@ STATE_NAMES = ["X", "Xt", "S", "N", "E"]
 # Parameters (white wine preset, literature values) ─────
 params = {
     # Growth
-    "mu_max": 0.10,  # max specific growth rate (1/h) — λευκό ~14°C
+    "mu_max": 0.031,  # — ~14°C (Nelson & Boulton, 2024)
     "KN": 50.0,  # half-saturation for nitrogen (mg/L) — Monod KS
     "kE": 0.035,  # ethanol inhibition constant — Coleman et al.
-    "kd": 0.001,  # death rate (1/h) — viability decay
+    "kd": 0.0001,  # death rate (1/h) — viability decay
     # Stoichiometry
-    "Yxn": 83.3,  # nitrogen consumed per biomass (mg N / g X)
+    "Yxn": 0.04,  # nitrogen consumed per biomass (4 g/L X from 100 mg/L N)
     "Yes": 0.47,  # ethanol yield on sugar (g E / g S) — Gay-Lussac ~0.51
     # Sugar uptake
     "Ks": 2.0,  # half-saturation for sugar (g/L)
-    "vmax_s": 2.0,  # max sugar uptake rate (g S / g X / h)
+    "vmax_s": 0.10,  # max sugar uptake rate (g S / g X / h)
     # Temperature
-    "T_opt": 14.0,  # optimal temp for white wine (°C)
-    "T_std": 4.0,  # Gaussian width (°C)
+    "T_ref": 15.0,  # reference temperature (°C) arrhenius
     # Initial conditions (white wine)
     "X0": 0.25,  # initial biomass (g/L)
     "Xt0": 0.25,
-    "S0": 220.0,  # initial sugar (g/L) — ~13% ABV potential
+    "S0": 220.0,  # initial sugar (g/L) —
     "N0": 300.0,  # initial YAN (mg/L) — adequate nitrogen
     "E0": 0.0,  # no ethanol at start
     "T": 14.0,  # fermentation temperature (°C)
@@ -46,8 +46,21 @@ params = {
 def rhs(t, y, p):  # t as time,y the state vector,p as the parameters
     X, Xt, S, N, E = y  # unpack the state vector
 
+    # Guard: concentrations cannot go below zero
+    X = max(X, 0.0)
+    S = max(S, 0.0)
+    N = max(N, 0.0)
+    E = max(E, 0.0)
     # modulating factors : nitrogen limitation, ethanol inhibition, temperature effect
     # AS F_N increases, growth rate increases, as F_N decreases, growth rate decreases
+
+    # 3. Temperature —
+    R_gas = 8.314
+    Ea = 55_000
+    T_K = p["T"] + 273.15
+    T_ref_K = p["T_ref"] + 273.15
+    f_T = np.exp(-Ea / R_gas * (1 / T_K - 1 / T_ref_K))
+
     # nitrogen limitation (monod type)    , N=nitrogen concentration, KN=half-saturation constant for nitrogen
     f_N = N / (
         p["KN"] + N
@@ -55,10 +68,6 @@ def rhs(t, y, p):  # t as time,y the state vector,p as the parameters
 
     # 2. Ethanol inhibition — όσο ανεβαίνει το E, πέφτει η δράση
     f_E = np.exp(-p["kE"] * E)
-
-    # 3. Temperature — Gaussian γύρω από το βέλτιστο
-    f_T = np.exp(-(((p["T"] - p["T_opt"]) / p["T_std"]) ** 2))  # ✅
-
     #   # RATES
 
     # specific growth rate  -how fast the biomass grows per unit of existing biomass
@@ -77,7 +86,7 @@ def rhs(t, y, p):  # t as time,y the state vector,p as the parameters
     dS = (
         -v_s * X - p["MNT"] * X
     )  # the main sugar consumption is due to the yeast growth, but there is also a maintenance term that consumes sugar even when the yeast is not growing. This maintenance term is proportional to the biomass and has a rate constant MNT (maintenance rate). The maintenance term is important for long fermentations where the yeast may stop growing but still consume sugar for maintenance.
-    dN = -p["Yxn"] * mu * X
+    dN = -(mu * X) / p["Yxn"]  # was -p["Yxn"] * mu * X
     dE = p["Yes"] * (v_s + p["MNT"]) * X
 
     return [dX, dXt, dS, dN, dE]
@@ -91,6 +100,12 @@ def run_simulation(p=params, t_end=600):
 
     y0 = [p["X0"], p["Xt0"], p["S0"], p["N0"], p["E0"]]  # initial state vector
 
+    def sugar_depleted(t, y, p):
+        return y[2]  # s=y[2] solver stops when this=0
+
+    sugar_depleted.terminal = True
+    sugar_depleted.direction = -1  # only stop when sugar is decreasing
+
     sol = solve_ivp(
         fun=rhs,
         t_span=(0, t_end),
@@ -99,13 +114,14 @@ def run_simulation(p=params, t_end=600):
         method="RK45",  # Runge-Kutta
         dense_output=True,  #  λείες καμπύλες
         max_step=1.0,  # step max 1 hour
+        events=sugar_depleted,
     )
 
     return sol
 
 
 def plot_simulation(sol):
-    """Σχεδιάζει τις 5 καμπύλες."""
+
     t = sol.t
     X, Xt, S, N, E = sol.y
 
@@ -127,9 +143,12 @@ def plot_simulation(sol):
         ax.set_xlabel("Time (h)")
         ax.grid(True, alpha=0.3)
 
-    axes[1, 2].axis("off")  # κενό panel
+    axes[1, 2].axis("off")
     plt.tight_layout()
-    plt.savefig("results/figures/fermentation_simulation_with_maintenance.png", dpi=150)
+    plt.savefig(
+        "results/figures/fermentation_simulation_with_maintenance_concentrations_not_bellow_zero_WITH_Arrhenius_with_bigger_kd.png",
+        dpi=150,
+    )
     plt.show()
 
 
