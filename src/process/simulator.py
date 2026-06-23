@@ -20,7 +20,7 @@ params = {
     "mu_max": 0.031,  # — ~14°C (Nelson & Boulton, 2024)
     "KN": 50.0,  # half-saturation for nitrogen (mg/L) — Monod KS
     "kE": 0.035,  # ethanol inhibition constant — Coleman et al.
-    "kd": 0.0001,  # death rate (1/h) — viability decay
+    "kd_prime": 0.000065,  # death rate (1/h) — viability decay
     # Stoichiometry
     "Yxn": 0.04,  # nitrogen consumed per biomass (4 g/L X from 100 mg/L N)
     "Yes": 0.47,  # ethanol yield on sugar (g E / g S) — Gay-Lussac ~0.51
@@ -81,7 +81,9 @@ def rhs(t, y, p):  # t as time,y the state vector,p as the parameters
     )  # modulated by ethanol and temperature
 
     # dervatives of the state variables
-    dX = mu * X - p["kd"] * X
+    kd = p["kd_prime"] * E
+    # because i have a very small consant,i will try to make it ethanol-dependent, so that the death rate increases with ethanol concentration. This is a simple way to model the inhibitory effect of ethanol on yeast viability. The idea is that as ethanol accumulates in the medium, it becomes more toxic to the yeast cells, leading to an increased death rate. This modification can help capture the dynamics of yeast population decline in high-ethanol environments, which is relevant for wine fermentation where ethanol levels can become inhibitory.
+    dX = mu * X - kd * X
     dXt = mu * X
     dS = (
         -v_s * X - p["MNT"] * X
@@ -95,7 +97,7 @@ def rhs(t, y, p):  # t as time,y the state vector,p as the parameters
 # so i will solve the system of equations using solve_ivp, which is a numerical integrator for ordinary differential equations (ODEs). This will allow us to simulate the fermentation process over time and observe how the state variables change.
 
 
-def run_simulation(p=params, t_end=600):
+def run_simulation(p=params, t_end=700):
     # t=0 to t_end hours
 
     y0 = [p["X0"], p["Xt0"], p["S0"], p["N0"], p["E0"]]  # initial state vector
@@ -146,7 +148,7 @@ def plot_simulation(sol):
     axes[1, 2].axis("off")
     plt.tight_layout()
     plt.savefig(
-        "results/figures/fermentation_simulation_with_maintenance_concentrations_not_bellow_zero_WITH_Arrhenius_with_bigger_kd.png",
+        "results/figures/fermentation_simulation_kd_prime_dependant_1.png",
         dpi=150,
     )
     plt.show()
