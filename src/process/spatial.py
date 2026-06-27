@@ -1,10 +1,13 @@
+import numpy as np
+from scipy.integrate import solve_ivp
+
+
 # Phase 2: CFD-lite 1D heat transport in fermentation tank
 # - 1D heat equation (method of lines) along tank height z
 #   - Dirichlet BC at base (z=0): T = T_coolant (cooling jacket)
 #   - Neumann BC at top (z=L):  dT/dz = 0 (adiabatic, no heat loss)
 #   - Source term: Q_ferm = DeltaH_ferm * |dS/dt| (exothermic fermentation)
 
-import numpy as np
 
 # Sources:
 #  Bogard et al. 2020, Foods 9:865 — tank geometry, wine thermal props
@@ -53,8 +56,61 @@ def heat_rhs(t, T, params):
         d2T_dz2 = (T[i + 1] - 2 * T[i] + T[i - 1]) / dz**2  # the central difference
         dTdt[i] = alpha * d2T_dz2
 
-    # we invent a ghost node above node 19 -> T[N] = T[N-1] (Neumann BC: dT/dz=0)
+    # we invent a ghost node above node 19 -> T[N] = T[N-2] (it makes a mirror,Neumann BC: dT/dz=0)
     d2T_top = 2 * (T[N - 2] - T[N - 1]) / dz**2
     dTdt[N - 1] = alpha * d2T_top
 
     return dTdt
+
+
+# no fermentation heat source term, just pure diffusion, to test the heat equation solver, a linear gradient (cold base,warm top) is expected to flatten over time, and the temperature should converge to a uniform value (the average of the initial temperatures) as time progresses.
+#  The test checks if the final temperature profile is close to this expected uniform value, within a specified tolerance.
+# without source term, the heat equation reduces to a pure diffusion problem, and the temperature should eventually become uniform throughout the tank. The test checks if the final temperature profile is close to this expected uniform value, within a specified tolerance.
+def run_diffusion_test(params, T_top=24, t_end=100, n_save=200):
+
+    N = params["N"]
+
+    # Initial condition : Linear gradient from base to top
+    T0 = np.linspace(
+        params["T_coolant"], T_top, N
+    )  # linear gradient from T_coolant at the base to T_top at the top
+    # base (node 0) =T_coolant=12
+    # top  (node N-1)=T_top=24
+
+    # enforce dirichelt BC at the base (node 0)
+    T0[0] = params["T_coolant"]
+
+    # time pointa to record the solution
+    t_eval = np.linspace(0, t_end, n_save)
+
+    # solve the heat equation using solve_ivp
+    sol = solve_ivp(
+        fun=heat_rhs,
+        t_span=(0, t_end),
+        y0=T0,
+        args=(params,),
+        method="BDF",  # stiff solver(stiff we mean by when fast and slow processes coexist), because the heat equation can be stiff, especially for small dz and large alpha. The BDF method is suitable for stiff problems and can handle the rapid changes in temperature that may occur in the early stages of the simulation.
+        t_eval=t_eval,
+        dense_output=True,
+    )
+
+    return sol
+
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
+    sol = run_diffusion_test(params)
+
+    # plot the temperature profile at a few times
+    z = np.linspace(0, params["H"], params["N"])
+    for k in [0, 10, 40, 100, 199]:  # indices into the saved snapshots
+        plt.plot(sol.y[:, k], z, label=f"t = {sol.t[k]:.0f} h")
+
+    plt.xlabel("Temperature (°C)")
+    plt.ylabel("Height z (m)")
+    plt.title("Stage 1: gradient relaxation (no source term)")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("results/figures/phase2_diffusion_test.png", dpi=150)
+    plt.show()
