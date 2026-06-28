@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.integrate import solve_ivp
-
+from scipy.interpolate import interp1d
+from src.process.simulator import run_simulation, params as ferm_params
 
 # Phase 2: CFD-lite 1D heat transport in fermentation tank
 # - 1D heat equation (method of lines) along tank height z
@@ -33,7 +34,9 @@ params["alpha_h"] = (
 )  # convert it to hours, because the ODE solver works in hours, and the heat equation is in seconds. So we multiply by 3600 to convert from seconds to hours. This way, the units are consistent when we use the heat equation in our simulation.
 
 
-# we are gonna use the method of lines to solve the heat equation. The method of lines is a technique for solving partial differential equations (PDEs) by discretizing the spatial domain into a finite number of points (or layers) and then solving the resulting system of ordinary differential equations (ODEs) in time. In our case, we are going to discretize the height of the fermentation tank into N layers, and then we will solve the heat equation for each layer as a function of time.
+# we are gonna use the method of lines to solve the heat equation.
+# The method of lines is a technique for solving partial differential equations (PDEs) by discretizing the spatial domain into a finite number of points (or layers) and then solving the resulting system of ordinary differential equations (ODEs) in time.
+# In our case, we are going to discretize the height of the fermentation tank into N layers, and then we will solve the heat equation for each layer as a function of time.
 # Converts the heat PDE  ∂T/∂t = α·∂²T/∂z²  into N coupled ODEs
 
 
@@ -97,20 +100,152 @@ def run_diffusion_test(params, T_top=24, t_end=100, n_save=200):
     return sol
 
 
+# prescribed source term,take a representative ds/dt(t) weighted by height -> what gradient does fermentation heat produce?
+# differentaites S(t)->|ds/dt|(t)
+# wraps it as a callable function of time
+
+
+def get_dSdt_profile(t_eval, sim_params):
+    sol = run_simulation(sim_params)  # stops when the sugar depltes
+    t_stop = sol.t[-1]  # actual end time
+
+    # so we need to evaluate sugar only within the solved window
+    S = np.zeros_like(t_eval)  # creates a frame with zeros with the shape of t_eval
+    inside = (
+        t_eval <= t_stop
+    )  # a boolean mask: True for time points within the solved window, False beyond.
+
+    S[inside] = sol.sol(t_eval[inside])[2]  # sugar = state index 2 → [X, Xt, S, N, E]
+    # past t_stop, S stays 0 (sugar gone) → dS/dt = 0 → no fermentation heat
+
+    dS = np.gradient(
+        S, t_eval
+    )  # gradient : estimates dS/dt from neighbouring points using finite differences
+    return np.abs(dS)
+
+
+# heat_rhs extended with fermentation heat source term
+# at each time t, retrieves |ds/dt| from the pre-built interpolator ,converts to a heat source Q(°C/h per layer),
+# and adds it to every interior and top layer
+def heat_rhs_with_source(t, T, params):
+    N = params["N"]
+    dz = params["dz"]  # spatial step size
+    alpha = params["alpha_h"]
+
+    # in phase ,we calculated the rate of change dS/dt but when we run the spatial heat simulation the solver uisng the BDF was jumping around in tie
+    # the data is discrete so the model crushes so we put the interpolator dSdt_func which is a continuous mmathematical curve that connects all the dots
+    # , it looks at the curve, estimates where the value should be, and returns the exact sugar consumption rate for that exact microsecond.
+
+    dSdt = params["dSdt_func"](t)
+
+    Q = (params["DELTA_H_FERM"] * dSdt * 1000) / (params["rho"] * params["Cp"])
+
+    # same Q applied to every layer
+    Q_layers = np.full(N, Q)
+
+    dTdt = np.zeros(N)
+
+    dTdt[0] = 0.0
+    for i in range(1, N - 1):
+        d2T_dz2 = (T[i + 1] - 2 * T[i] + T[i - 1]) / dz**2
+        dTdt[i] = alpha * d2T_dz2 + Q_layers[i]
+
+    d2T_top = 2 * (T[N - 2] - T[N - 1]) / dz**2
+    dTdt[N - 1] = alpha * d2T_top + Q_layers[N - 1]
+
+    return dTdt
+
+
+# couples phase 1 sugar kinetics to 1d heat transport
+def run_with_fermentation(spatial_p, ferm_p, t_end=None, n_save=300):
+    """
+    Stage 2: couples Phase 1 sugar kinetics to 1D heat transport.
+    Starts flat (uniform T_initial)
+    """
+    N = spatial_p["N"]
+
+    # run Phase 1 to find actual fermentation end time
+    sol_ferm = run_simulation(ferm_p)
+
+    # check if the terminal event (sugar depletion) fired
+    if sol_ferm.t_events[0].size > 0:
+        t_ferm_end = sol_ferm.t_events[0][0]
+    else:
+        # fallback: find when sugar drops below 1 g/L
+        S_trace = sol_ferm.y[2]
+        low = np.where(S_trace < 1.0)[0]
+        t_ferm_end = sol_ferm.t[low[0]] if low.size > 0 else sol_ferm.t[-1]
+
+    if t_end is None:
+        t_end = t_ferm_end  # must resolve BEFORE linspace uses it
+
+    t_eval = np.linspace(0, t_end, n_save)
+
+    # build the source term interpolator from Phase 1 output
+    dSdt_arr = get_dSdt_profile(t_eval, ferm_p)
+    spatial_p["dSdt_func"] = interp1d(
+        t_eval,
+        dSdt_arr,
+        kind="linear",
+        bounds_error=False,
+        fill_value=0.0,  # no heat past sugar depletion
+    )
+
+    #  biology creates the gradient
+    T0 = np.full(N, spatial_p["T_initial"])
+    T0[0] = spatial_p["T_coolant"]  # Dirichlet: base at jacket temperature
+
+    sol = solve_ivp(
+        fun=heat_rhs_with_source,
+        t_span=(0, t_end),
+        y0=T0,
+        args=(spatial_p,),
+        method="BDF",
+        t_eval=t_eval,
+        dense_output=True,
+    )
+
+    return sol, t_eval
+
+
+# runs both stages, saves combined figure
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    sol = run_diffusion_test(params)
-
-    # plot the temperature profile at a few times
     z = np.linspace(0, params["H"], params["N"])
-    for k in [0, 10, 40, 100, 199]:  # indices into the saved snapshots
-        plt.plot(sol.y[:, k], z, label=f"t = {sol.t[k]:.0f} h")
+    fig, axes = plt.subplots(1, 3, figsize=(16, 5))
 
-    plt.xlabel("Temperature (°C)")
-    plt.ylabel("Height z (m)")
-    plt.title("Stage 1: gradient relaxation (no source term)")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig("results/figures/phase2_diffusion_test.png", dpi=150)
+    sol_test = run_diffusion_test(params)
+    for k in [0, 10, 40, 100, 199]:
+        axes[0].plot(sol_test.y[:, k], z, label=f"t={sol_test.t[k]:.0f}h")
+    axes[0].set_xlabel("Temperature (°C)")
+    axes[0].set_ylabel("Height z (m)")
+    axes[0].set_title("Stage 1: relaxation test\n(no source — BCs verified)")
+    axes[0].legend(fontsize=8)
+
+    sol_s2, t_eval = run_with_fermentation(params, ferm_params)
+    n = sol_s2.y.shape[1]
+
+    for k in [0, n // 5, n // 2, 3 * n // 4, n - 1]:
+        axes[1].plot(sol_s2.y[:, k], z, label=f"t={sol_s2.t[k]:.0f}h")
+    axes[1].set_xlabel("Temperature (°C)")
+    axes[1].set_ylabel("Height z (m)")
+    axes[1].set_title("Stage 2: fermentation gradient\n(warm top, cold base)")
+    axes[1].legend(fontsize=8)
+
+    im = axes[2].imshow(
+        sol_s2.y,
+        aspect="auto",
+        origin="lower",
+        extent=[sol_s2.t[0], sol_s2.t[-1], 0, params["H"]],
+        cmap="inferno",
+    )
+    axes[2].set_xlabel("Time (h)")
+    axes[2].set_ylabel("Height z (m)")
+    axes[2].set_title("T(z, t) heatmap")
+    fig.colorbar(im, ax=axes[2], label="Temperature (°C)")
+
+    fig.suptitle("Phase 2 — CFD-lite: 1D heat transport in fermentation tank")
+    fig.tight_layout()
+    fig.savefig("results/figures/phase2_full.png", dpi=150)
     plt.show()

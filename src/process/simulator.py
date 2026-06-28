@@ -4,6 +4,8 @@ from scipy.integrate import solve_ivp
 
 import matplotlib.pyplot as plt
 
+# --------------------------------PHASE 1:Process digital twin: ODE simulator -----------------------------------------------
+
 # state vector :the numbers that we want to track during the simulation
 STATE_NAMES = ["X", "Xt", "S", "N", "E"]
 #   X  = viable yeast biomass (g/L)
