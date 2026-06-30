@@ -19,7 +19,7 @@ STATE_NAMES = ["X", "Xt", "S", "N", "E"]
 # Parameters (white wine preset, literature values) ─────
 params = {
     # Growth
-    "mu_max": 0.031,  # — ~14°C (Nelson & Boulton, 2024)
+    "mu_max": 0.05,  # — ~14°C (Nelson & Boulton, 2024)
     "KN": 50.0,  # half-saturation for nitrogen (mg/L) — Monod KS
     "kE": 0.035,  # ethanol inhibition constant — Coleman et al.
     "kd_prime": 0.000065,  # death rate (1/h) — viability decay

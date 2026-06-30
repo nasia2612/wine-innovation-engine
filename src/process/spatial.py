@@ -17,7 +17,7 @@ from src.process.simulator import run_simulation, params as ferm_params
 
 params = {
     "H": 2.2,  # m, tank height (Bogard 2020)
-    "N": 20,  # layers — start here; dz = H/(N-1) ≈ 0.116 m
+    "N": 40,  # layers — start here; dz = H/(N-1) ≈ 0.116 m
     "alpha": 1.9e-5,  # m²/s, effective (convective) (we make it bigger than pure diffusion to account for convective mixing)
     "rho": 1080.0,  # kg/m³, fermenting must (Nelson & Boulton),density of the fermenting liquid
     "Cp": 3800.0,  # J/kg/K, approximated  ,specific heat capacity of the fermenting liquid
@@ -40,7 +40,8 @@ params["alpha_h"] = (
 # Converts the heat PDE  ∂T/∂t = α·∂²T/∂z²  into N coupled ODEs
 
 
-def heat_rhs(t, T, params):
+def heat_rhs(t, T, params):  # It calculates how the temperature at each of our
+    # 20 layers changes in the next microsecond due to pure diffusion (no fermentation heat).
 
     N = params["N"]
     dz = params["dz"]
@@ -245,7 +246,7 @@ if __name__ == "__main__":
     axes[2].set_title("T(z, t) heatmap")
     fig.colorbar(im, ax=axes[2], label="Temperature (°C)")
 
-    fig.suptitle("Phase 2 — CFD-lite: 1D heat transport in fermentation tank")
+    fig.suptitle("Phase 2 — CFD-lite: 1D heat transport in fermentation tank_with_N_40")
     fig.tight_layout()
     fig.savefig("results/figures/phase2_full.png", dpi=150)
     plt.show()
