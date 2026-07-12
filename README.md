@@ -63,3 +63,53 @@ measured 15°C fermentation (their Fig. 2a) similarly remained above
 sluggish. μ_max was set to 0.05 /h following Coleman's reported value
 near 11–15°C (their Fig. 3a).
 
+
+
+#PHASE 3 RSM -OPTIMIZATION
+
+What we want :
+-final ethanol-> want higher 
+-residual sugar->want low (we want it dry and to complete the fermentation)
+-fermentation time -> want low (Economic/operational goal: less time in the tank = more production cycle, less risk of contamination)
+
+We have conflicts Warmer finishes faster and drier but can overheat; more sugar means more ethanol but slower, stickier fermentation
+
+we  know the screening factors(T,S0,N0) so we do not need a screening experiment.
+The three factors were selected a priori based on the mechanistic structure of the Boulton ODE model (Arrhenius temperature dependence, dual-substrate Monod kinetics), not through empirical screening SO the DoE here serves to map the response surface around conditions that we already know have an effect, not to find out which ones do.
+
+The DoE layer varies temperature, initial sugar (S₀), and initial assimilable nitrogen (N₀), but not initial yeast concentration (inoculum size, X₀).
+. In this model the yeast population is not static: biomass grows logistically toward a carrying capacity set by the limiting nutrient (nitrogen, secondarily sugar), not by the starting cell count ,a small inoculum reaches the same population ceiling as a large one, just after a longer lag. Final ethanol is therefore governed by nutrient availability, not inoculum size.
+ in a three-factor Box–Behnken optimisation of fruit-wine fermentation (Thuy et al., 2023, Food Sci. Technol), dry yeast concentration (0.15–0.25 g/L) was the least influential of the three factors on ethanol, with no further gain above ~0.2 g/L.
+ there is no explicit enzyme state because grape must consists of directly fermentable hexoses (glucose, fructose) and needs no saccharification.
+ So, enzymatic capacity is absorbed into βmax and the viable-biomass term X_V —> biomass is the model's proxy for enzyme concentration.
+
+A three-factor Box–Behnken design (pyDOE2) is used over T, S0, N0. Factor levels
+are coded (-1, 0, +1) with symmetric spacing so the quadratic terms are not
+distorted by unequal step sizes.
+
+Also  All levels are kept inside the validated domain of the Coleman et al. (2007) but The temperature range is deliberately kept away from thetested extremes (11 °C, 35 °C), since all four Coleman validation datasets resulted in stuck or incomplete fermentations.
+
+
+Each model is evaluated by ANOVA; non-significant terms are dropped (model
+reduction) so the retained surface reflects only statistically supported effects.
+Model adequacy is judged on both R² and residual behaviour.
+### Multi-response optimization (desirability)
+Each fitted response is mapped to an individual desirability d(Yᵢ) ∈ [0,1] using
+one-sided Derringer–Suich functions (`desirability` in R):
+
+- i will add importance  weight to sugar because we care mostly for dryness/no stuck fermentation
+
+- ethanol → `dMax`
+- residual sugar → `dMin`
+- fermentation time → `dMin`
+
+The overall desirability is the geometric mean
+
+    D = (d_ethanol · d_sugar · d_time)^(1/3)
+Because the Phase 2 CFD-lite model shows a real spatial temperature gradient
+(Dirichlet at tank base, Neumann at top), the scalar-T assumption is validated
+**after** the optimization, not inside the DoE loop->so we follow these steps :
+1. Take the optimum setpoint T* from the desirability optimization.
+2. Run the Phase 2 spatial model **once** with T* as boundary condition.
+3. Extract the resulting temperature gradient across tank height (ΔT, base vs top)
+   over the fermentation window.
