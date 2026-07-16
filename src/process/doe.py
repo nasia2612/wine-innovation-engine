@@ -43,7 +43,7 @@ def build_design() -> pd.DataFrame:
 
 # so we run one point to see
 DRYNESS_THRESHOLD = 4.0  # g/L
-T_END_PENALTY = 600  # hours, if we reach this time without reaching dryness, we will penalize the objective function
+T_END_PENALTY = 1000  # hours, if we reach this time without reaching dryness, we will penalize the objective function
 
 
 def run_single_point(T: float, S0: float, N0: float) -> dict:
