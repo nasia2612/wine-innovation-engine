@@ -25,7 +25,7 @@ params = {
     "kd_prime": 0.000065,  # death rate (1/h) — viability decay
     # Stoichiometry
     "Yxn": 0.04,  # nitrogen consumed per biomass (4 g/L X from 100 mg/L N)
-    "Yes": 0.47,  # ethanol yield on sugar (g E / g S) — Gay-Lussac ~0.51
+    "Yes": 0.55,  # ethanol yield on sugar (g E / g S) — Gay-Lussac ~0.51 ,coleman ~0.55
     # Sugar uptake
     "Ks": 2.0,  # half-saturation for sugar (g/L)
     "vmax_s": 0.10,  # max sugar uptake rate (g S / g X / h)
@@ -91,10 +91,7 @@ def rhs(t, y, p):  # t as time,y the state vector,p as the parameters
         -v_s * X - p["MNT"] * X
     )  # the main sugar consumption is due to the yeast growth, but there is also a maintenance term that consumes sugar even when the yeast is not growing. This maintenance term is proportional to the biomass and has a rate constant MNT (maintenance rate). The maintenance term is important for long fermentations where the yeast may stop growing but still consume sugar for maintenance.
     dN = -(mu * X) / p["Yxn"]  # was -p["Yxn"] * mu * X
-    dE = (
-        p["Yes"] * v_s * X
-    )  # # only growth-associated sugar consumption converts to ethanol;
-    # maintenance-associated sugar (MNT) is respired/used for cell
+    dE = p["Yes"] * (v_s + p["MNT"]) * X  # anaerobic glycolisis->ethanol+co2
 
     return [dX, dXt, dS, dN, dE]
 

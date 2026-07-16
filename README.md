@@ -113,3 +113,11 @@ Because the Phase 2 CFD-lite model shows a real spatial temperature gradient
 2. Run the Phase 2 spatial model **once** with T* as boundary condition.
 3. Extract the resulting temperature gradient across tank height (ΔT, base vs top)
    over the fermentation window.
+
+
+
+Removing the maintenance term from ethanol production had a larger-than-expected
+effect on stuck/complete outcomes (5/15 → 3/15 stuck points), due to an indirect
+feedback: lower ethanol accumulation reduces the ethanol-driven death rate (kd),
+allowing viable biomass to persist longer and consume more sugar before dying
+illustrating the coupled nature of the ODE system beyond the directly edited term.
