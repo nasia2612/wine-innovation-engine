@@ -26,18 +26,18 @@ dE/dt  = β·X + MNT·X                  # ethanol production
 ### Key findings
 
 - Ethanol turns out to be almost entirely non-growth-associated.
-- Sugar is not the limiting nutrient in grape juice — it's 150–300 g/L, hugely
+- Sugar is not the limiting nutrient in grape juice , it's 150–300 g/L, hugely
   abundant. What actually runs out first is nitrogen.
 - Coleman (2007) uses an nth-order polynomial `kd_prime(T)` that rises sharply above
   25°C, capturing thermal death at high temperatures.
-- We also studied stuck fermentation, caused by low YAN (<80 mg N/L — this can also
+- We also studied stuck fermentation, caused by low YAN (<80 mg N/L ,this can also
   cause sluggish, very slow fermentation). Stuck fermentation can also be caused by
   high temperature → high `kd`.
 
 ### Conclusions
 
 - **Baseline behavior (14°C, S0=220 g/L, N0=300 mg/L):** the model reaches 65.8 g/L
-  final ethanol (≈8.3% v/v ABV) with 0 g/L residual sugar in ≈212 h — a clean,
+  final ethanol (≈8.3% v/v ABV) with 0 g/L residual sugar in ≈212 h , a clean,
   complete fermentation under adequate-nitrogen conditions.
 - **Validation against Coleman Dataset 2** (stuck-fermentation conditions: S0=265 g/L,
   N0=80 mg/L, T=15°C): the model predicts a max viable biomass of 3.59 g/L against the
@@ -99,7 +99,7 @@ reported value near 11–15°C (their Fig. 3a).
   N=40 vs. N=80 difference is negligible, confirming the result is grid-independent
   rather than a discretization artifact.
 - **Interpolation choice is not a sensitive assumption:** using linear vs. cubic
-  interpolation for `dS/dt` gives peak gradients of 6.7851°C vs. 6.7822°C — close
+  interpolation for `dS/dt` gives peak gradients of 6.7851°C vs. 6.7822°C , close
   enough that the faster linear interpolation is justified.
 - The model supports the qualitative claim that ignoring spatial gradients is a real
   simplification in Phase 1/3: a well-mixed, scalar-temperature assumption
@@ -124,7 +124,7 @@ initial sugar means more ethanol but a slower, stickier fermentation.
 We already know the screening factors (T, S0, N0), so no screening experiment is
 needed. The three factors were selected a priori based on the mechanistic structure
 of the Boulton ODE model (Arrhenius temperature dependence, dual-substrate Monod
-kinetics), not through empirical screening — so the DoE here serves to map the
+kinetics), not through empirical screening , so the DoE here serves to map the
 response surface around conditions we already know have an effect, not to discover
 which ones do.
 
@@ -132,7 +132,7 @@ The DoE layer varies temperature, initial sugar (S₀), and initial assimilable
 nitrogen (N₀), but not initial yeast concentration (inoculum size, X₀). In this
 model the yeast population is not static: biomass grows logistically toward a
 carrying capacity set by the limiting nutrient (nitrogen, secondarily sugar), not by
-the starting cell count — a small inoculum reaches the same population ceiling as a
+the starting cell count ,a small inoculum reaches the same population ceiling as a
 large one, just after a longer lag. Final ethanol is therefore governed by nutrient
 availability, not inoculum size. This is consistent with Thuy et al. (2023, Food
 Sci. Technol), whose three-factor Box–Behnken optimization of fruit-wine
@@ -141,7 +141,7 @@ of three factors on ethanol, with no further gain above ~0.2 g/L.
 
 There is no explicit enzyme state, because grape must consists of directly
 fermentable hexoses (glucose, fructose) and needs no saccharification. Enzymatic
-capacity is absorbed into βmax and the viable-biomass term X_V — biomass is the
+capacity is absorbed into βmax and the viable-biomass term X_V , biomass is the
 model's proxy for enzyme concentration.
 
 A three-factor Box–Behnken design (pyDOE2) is used over T, S0, N0. Factor levels are
@@ -192,7 +192,7 @@ illustrating the coupled nature of the ODE system beyond the directly edited ter
   conversion 1.0089, and overall desirability D = 0.8386.
 - The coded temperature factor sits exactly at its lower bound (x1 = −1), matching
   the earlier observation that the model "wanted to go further with the
-  temperature but can't" — the optimizer is boundary-clamped, not sitting at an
+  temperature but can't" , the optimizer is boundary-clamped, not sitting at an
   interior optimum, which is consistent with neither `peak_rate` nor `time` having
   an in-range stationary point (both are saddle/ridge surfaces, per the
   eigenanalyses above).
@@ -220,7 +220,7 @@ illustrating the coupled nature of the ODE system beyond the directly edited ter
 - **Deterministic pure error:** the Box–Behnken center point is replicated 3 times,
   but the simulator is fully deterministic (no stochastic noise), so those replicate
   runs are numerically identical. This makes the "pure error" and lack-of-fit tests
-  in the RSM output above near-degenerate (F-values on the order of 10²⁹–10³⁰) —
+  in the RSM output above near-degenerate (F-values on the order of 10²⁹–10³⁰) ,
   they should not be read as evidence of a genuine model-fit problem, since there is
   essentially no real replicate variance to compare against.
 - **Ethanol not in the reported optimum:** an `ethanol` RSM model is fit in
@@ -228,7 +228,7 @@ illustrating the coupled nature of the ODE system beyond the directly edited ter
   `time`, `peak_rate`, and `conversion` (as a constraint). Ethanol yield is not
   actually part of the multi-response optimum reported above.
 - **Extrapolation past the physical ceiling:** the optimizer's predicted conversion
-  (1.0089) exceeds the physical maximum of 1.0 (100%) — a symptom of fitting a
+  (1.0089) exceeds the physical maximum of 1.0 (100%) ,a symptom of fitting a
   second-order polynomial near the boundary of the design space.
 -
 
