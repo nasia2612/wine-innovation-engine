@@ -10,9 +10,9 @@ from src.process.simulator import run_simulation, params
 
 # we write the factor levels with symmetric levels because we convert them into coded variables (we want to put every factor on a common,comparable footing)
 FACTOR_LEVELS = {
-    "T": {"low": 14, "center": 20, "high": 26},  # degC
-    "S0": {"low": 270, "center": 285, "high": 300},  # g/L
-    "N0": {"low": 100, "center": 200, "high": 300},  # mg/L
+    "T": {"low": 15, "center": 21, "high": 27},  # degC
+    "S0": {"low": 250, "center": 265, "high": 280},  # g/L
+    "N0": {"low": 140, "center": 240, "high": 340},  # mg/L
 }
 
 
@@ -47,35 +47,56 @@ T_END_PENALTY = 1000  # hours, if we reach this time without reaching dryness, w
 
 
 def run_single_point(T: float, S0: float, N0: float) -> dict:
-    p = {
-        **params,
-        "T": T,
-        "S0": S0,
-        "N0": N0,
-    }  # we unpack the parameters and override the ones we want to change
-    sol = run_simulation(p=p, t_end=T_END_PENALTY)
+    # override parameters with the DoE point
+    p = {**params, "T": T, "S0": S0, "N0": N0}
+    sol = run_simulation(
+        p=p, t_end=T_END_PENALTY, use_event=False
+    )  # we use the penalty time as t_end, so that we can see if we reach dryness or not
 
-    t = sol.t
     X, Xt, S, N, E = sol.y
 
-    final_ethanol = E[
-        -1
-    ]  # The final ethanol concentration at the end of the simulation
-    residual_sugar = max(
-        S[-1], 0.0
-    )  # we're not ignoring the solver error, just acknowledging that S < 0 has no physical meaning and should be treated as S = 0.The final sugar concentration at the end of the simulation
+    # --- basic responses (unchanged) ---
+    final_ethanol = E[-1]
+    residual_sugar = max(S[-1], 0.0)
+    conversion = (S0 - residual_sugar) / S0
 
+    # --- old absolute-threshold criterion, kept as diagnostic ---
     dry_idx = np.argmax(S < DRYNESS_THRESHOLD) if np.any(S < DRYNESS_THRESHOLD) else -1
-    if dry_idx != -1:
-        time_to_dry = t[dry_idx]
+
+    # --- NEW: rate-based practical end-of-fermentation ---
+    # dense output lets us evaluate S at any t within the solved window
+    t_fine = np.linspace(0, sol.t[-1], 2000)
+    S_fine = sol.sol(t_fine)[2]  # index 2 = S in [X, Xt, S, N, E]
+
+    dSdt = np.gradient(S_fine, t_fine)
+    rate = np.abs(dSdt)
+
+    peak_idx = np.argmax(rate)
+    peak_rate = rate[peak_idx]
+    threshold = 0.01 * peak_rate
+
+    # search only AFTER the peak — ignore early ramp-up
+    rate_after_peak = rate[peak_idx:]
+    below = np.where(rate_after_peak < threshold)[0]
+
+    if below.size > 0:
+        j = below[0]  # index inside the sliced array
+        real_idx = peak_idx + j  # index inside the ORIGINAL t_fine
+        time_to_dry = t_fine[real_idx]
+        reached_practical_end = True
     else:
-        time_to_dry = T_END_PENALTY  # if we never reach dryness, we set the time to dry to the maximum simulation time
+        time_to_dry = T_END_PENALTY
+        reached_practical_end = False
 
     return {
         "ethanol": final_ethanol,
         "sugar": residual_sugar,
         "time": time_to_dry,
-        "reached_dryness": dry_idx != -1,  # keep as diagnostic column
+        "conversion": conversion,
+        "peak_rate": peak_rate,  # g/L/h — peak cooling & CO2 demand
+        "time_to_peak": t_fine[peak_idx],  # h — lag phase indicator
+        "reached_dryness": dry_idx != -1,  # old absolute-threshold flag
+        "reached_practical_end": reached_practical_end,  # new rate-based flag
     }
 
 
@@ -114,12 +135,25 @@ if __name__ == "__main__":
     full_results.to_csv(output_path, index=False)
     print(f"Saved to {output_path}")
     print(
-        full_results[["T", "S0", "N0", "ethanol", "sugar", "time", "reached_dryness"]]
+        full_results[
+            [
+                "T",
+                "S0",
+                "N0",
+                "ethanol",
+                "sugar",
+                "conversion",
+                "peak_rate",
+                "time",
+                "reached_dryness",
+            ]
+        ]
     )
 
     n_stuck = (~full_results["reached_dryness"]).sum()
     if n_stuck > 0:
         print(
-            f"\n⚠️  {n_stuck}/{len(full_results)} points did not reach dryness "
-            f"within t_end — treated as worst-case time ({T_END_PENALTY}h)."
+            f"\nℹ️  {n_stuck}/{len(full_results)} points did not reach the "
+            f"{DRYNESS_THRESHOLD} g/L dryness threshold (nitrogen-limited); "
+            f"practical end-of-fermentation time reported instead."
         )

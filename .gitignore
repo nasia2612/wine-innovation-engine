@@ -6,3 +6,5 @@ __pycache__/
 .Rproj.user/
 .vscode/
 .vscode/
+bioSkills/
+install_packages.R

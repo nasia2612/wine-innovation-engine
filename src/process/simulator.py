@@ -11,7 +11,7 @@ STATE_NAMES = ["X", "Xt", "S", "N", "E"]
 #   X  = viable yeast biomass (g/L)
 #   Xt = total yeast biomass  (g/L)
 #   S  = sugar (g/L)                  ← glucose + fructose
-#   N  = assimilable nitrogen (mg/L)  ← if it finishes → stuck
+#   N  = assimilable nitrogen (mg/L)  ← if it finishes early→ stuck
 #   E  = ethanol (g/L)                ← product + inhibitor
 
 #'The ethanol yield is not 0.51 but ~0.47-0.49 because carbon is shared between ethanol, biomass and glycerol
@@ -56,7 +56,7 @@ def rhs(t, y, p):  # t as time,y the state vector,p as the parameters
     # modulating factors : nitrogen limitation, ethanol inhibition, temperature effect
     # AS F_N increases, growth rate increases, as F_N decreases, growth rate decreases
 
-    # 3. Temperature —
+    # 3. Temperature
     R_gas = 8.314
     Ea = 55_000
     T_K = p["T"] + 273.15
@@ -87,11 +87,16 @@ def rhs(t, y, p):  # t as time,y the state vector,p as the parameters
     # because i have a very small consant,i will try to make it ethanol-dependent, so that the death rate increases with ethanol concentration. This is a simple way to model the inhibitory effect of ethanol on yeast viability. The idea is that as ethanol accumulates in the medium, it becomes more toxic to the yeast cells, leading to an increased death rate. This modification can help capture the dynamics of yeast population decline in high-ethanol environments, which is relevant for wine fermentation where ethanol levels can become inhibitory.
     dX = mu * X - kd * X
     dXt = mu * X
+    # we will put sugar gate to stop the yeast production when sugar is depleted, because we know that yeast will stop growing and producing ethanol when there is no sugar left. This is a simple way to model the end of fermentation, where the yeast cells enter a stationary phase due to nutrient limitation. The sugar gate ensures that the model reflects this biological reality, preventing unrealistic behavior such as negative sugar concentrations or continued growth in the absence of substrate.
+    sugar_gate = S / (p["Ks"] + S)
+
     dS = (
-        -v_s * X - p["MNT"] * X
+        -v_s * X - p["MNT"] * X * sugar_gate
     )  # the main sugar consumption is due to the yeast growth, but there is also a maintenance term that consumes sugar even when the yeast is not growing. This maintenance term is proportional to the biomass and has a rate constant MNT (maintenance rate). The maintenance term is important for long fermentations where the yeast may stop growing but still consume sugar for maintenance.
     dN = -(mu * X) / p["Yxn"]  # was -p["Yxn"] * mu * X
-    dE = p["Yes"] * (v_s + p["MNT"]) * X  # anaerobic glycolisis->ethanol+co2
+    dE = (
+        p["Yes"] * (v_s + p["MNT"] * sugar_gate) * X
+    )  # anaerobic glycolisis->ethanol+co2
 
     return [dX, dXt, dS, dN, dE]
 
@@ -99,28 +104,29 @@ def rhs(t, y, p):  # t as time,y the state vector,p as the parameters
 # so i will solve the system of equations using solve_ivp, which is a numerical integrator for ordinary differential equations (ODEs). This will allow us to simulate the fermentation process over time and observe how the state variables change.
 
 
-def run_simulation(p=params, t_end=700):
-    # t=0 to t_end hours
+def run_simulation(p=params, t_end=700, use_event=True):
+    y0 = [p["X0"], p["Xt0"], p["S0"], p["N0"], p["E0"]]
 
-    y0 = [p["X0"], p["Xt0"], p["S0"], p["N0"], p["E0"]]  # initial state vector
-
-    def sugar_depleted(t, y, p):
-        return y[2]  # s=y[2] solver stops when this=0
-
-    sugar_depleted.terminal = True
-    sugar_depleted.direction = -1  # only stop when sugar is decreasing
-
-    sol = solve_ivp(
+    kwargs = dict(
         fun=rhs,
         t_span=(0, t_end),
         y0=y0,
         args=(p,),
-        method="RK45",  # Runge-Kutta
-        dense_output=True,  #  λείες καμπύλες
-        max_step=1.0,  # step max 1 hour
-        events=sugar_depleted,
+        method="RK45",
+        dense_output=True,
+        max_step=1.0,
     )
+    # dense output because we want to fix our own grid
+    if use_event:
 
+        def sugar_depleted(t, y, p):
+            return y[2]
+
+        sugar_depleted.terminal = True
+        sugar_depleted.direction = -1
+        kwargs["events"] = sugar_depleted
+
+    sol = solve_ivp(**kwargs)
     return sol
 
 

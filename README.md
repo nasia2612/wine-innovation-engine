@@ -121,3 +121,146 @@ effect on stuck/complete outcomes (5/15 → 3/15 stuck points), due to an indire
 feedback: lower ethanol accumulation reduces the ethanol-driven death rate (kd),
 allowing viable biomass to persist longer and consume more sugar before dying
 illustrating the coupled nature of the ODE system beyond the directly edited term.
+
+##################################################################################
+########## SUMMARY OF RSM for responce =peak rate #####################################
+rsm(formula = peak_rate ~ SO(x1, x2, x3), data = design_coded)
+
+
+
+# COEFFIENT TABLE(for each term,If I keep all the other 8 terms in the model, does this one term in particular help explain the peak_rate?)
+
+
+               Estimate  Std. Error  t value  Pr(>|t|)    
+(Intercept)  2.00459733  0.01883627 106.4222 1.389e-09 ***
+x1           0.75680998  0.01153481  65.6109 1.557e-08 ***
+x2           0.00133986  0.01153481   0.1162 0.9120484    
+x3           0.80019664  0.01153481  69.3723 1.179e-08 ***
+x1:x2        0.00041375  0.01631269   0.0254 0.9807460    
+x1:x3        0.32579468  0.01631269  19.9719 5.816e-06 ***
+x2:x3        0.00076199  0.01631269   0.0467 0.9645516    
+x1^2         0.14144130  0.01697879   8.3305 0.0004075 ***
+x2^2         0.00421467  0.01697879   0.2482 0.8138279    
+x3^2        -0.03023040  0.01697879  -1.7805 0.1351113    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Multiple R-squared:  0.9995,	Adjusted R-squared:  0.9985 
+F-statistic:  1066 on 9 and 5 DF,  p-value: 1.153e-07
+
+# Analysis of Variance Table (ANOVA ->ASKS FOR GROUPS OF TERMS)
+# is it worth having ALL the category (all 3 terms together) in the model, or would #I do just as well without any of them?
+#BUT WE NEED THE COEFFICIENT TABLE BECAUSE SOMETIMES TWO OF THE TERMS MATTER MORE
+# FO = First Order x1, x2, x3.
+# TWI = Two-Way Interactions  x1:x2, x1:x3, x2:x3.
+# Q = Pure Quadratic  x1², x2², x3².
+
+
+
+
+Response: peak_rate
+                Df Sum Sq Mean Sq    F value    Pr(>F)
+FO(x1, x2, x3)   3 9.7046  3.2349 3.0391e+03 1.433e-08
+TWI(x1, x2, x3)  3 0.4246  0.1415 1.3296e+02 3.459e-05
+PQ(x1, x2, x3)   3 0.0802  0.0267 2.5114e+01  0.001924
+Residuals        5 0.0053  0.0011                     
+Lack of fit      3 0.0053  0.0018 1.4393e+29 < 2.2e-16
+Pure error       2 0.0000  0.0000                     
+
+Stationary point of response surface:
+         x1          x2          x3 
+-2.48650992 -0.02208355 -0.16393906  # extrapolation 
+
+Stationary point in original units:
+       Ti      Sub0        N0 
+ # 6.08094 264.66875 223.60609 
+
+Eigenanalysis:
+eigen() decomposition
+$values
+[1]  0.239734628  0.004214441 -0.128523497
+
+$vectors
+          [,1]          [,2]         [,3]
+x1 0.856203253  0.0022131598  0.516634388
+x2 0.001587816 -0.9999973743  0.001652349
+x3 0.516636689 -0.0005944261 -0.856204519
+
+
+
+# OBSERVATIONS
+x1 and x3 (linear terms ) have significant results,second-order (quadratic) x1:x3 are significant 
+
+#the 0.75 in x1 means that if x1 was increased from 0 to +1 (or 6 the step we have) the peak rate will be increased ~ ~0.757 g/L/h keeping the other the same 
+
+#the standard errors are similar because of the model we choose (box-behnken) ,the design is balanced 
+
+# t value 
+
+estimate/std. error 
+
+![alt text](image.png)
+
+![alt text](image.png)
+
+![alt text](image.png)
+
+![alt text](image.png)
+
+Call:
+rsm(formula = time ~ SO(x1, x2, x3), data = design_coded)
+
+            Estimate Std. Error  t value  Pr(>|t|)    
+(Intercept)  232.616     20.112  11.5662 8.476e-05 ***
+x1          -172.711     12.316 -14.0234 3.316e-05 ***
+x2            47.586     12.316   3.8638  0.011834 *  
+x3          -201.413     12.316 -16.3539 1.559e-05 ***
+x1:x2        -52.776     17.417  -3.0301  0.029078 *  
+x1:x3         94.047     17.417   5.3996  0.002943 ** 
+x2:x3        -22.386     17.417  -1.2853  0.255005    
+x1^2          27.826     18.129   1.5350  0.185386    
+x2^2          53.464     18.129   2.9492  0.031916 *  
+x3^2         104.740     18.129   5.7776  0.002185 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Multiple R-squared:  0.9911,	Adjusted R-squared:  0.9752 
+F-statistic: 62.17 on 9 and 5 DF,  p-value: 0.0001345
+
+Analysis of Variance Table
+
+Response: time
+                Df Sum Sq Mean Sq    F value    Pr(>F)
+FO(x1, x2, x3)   3 581288  193763 1.5968e+02 2.201e-05
+TWI(x1, x2, x3)  3  48525   16175 1.3330e+01  0.008048
+PQ(x1, x2, x3)   3  49184   16395 1.3511e+01  0.007814
+Residuals        5   6067    1213                     
+Lack of fit      3   6067    2022 2.5036e+30 < 2.2e-16
+Pure error       2      0       0                     
+
+Stationary point of response surface:
+        x1         x2         x3 
+-17.761755  -7.508892   8.133282 
+
+Stationary point in original units:
+        Ti       Sub0         N0 
+ -85.57053  152.36661 1053.32823 
+
+Eigenanalysis:
+eigen() decomposition
+$values
+[1] 133.010056  54.542174  -1.521715
+
+$vectors
+         [,1]       [,2]       [,3]
+x1  0.4485044 -0.2019381  0.8706692
+x2 -0.2687317  0.8985992  0.3468468
+x3  0.8524242  0.3895387 -0.3487585
+
+
+
+
+
+
+
+![alt text](image.png)
