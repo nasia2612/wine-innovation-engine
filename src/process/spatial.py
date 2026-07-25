@@ -71,7 +71,6 @@ def heat_rhs(t, T, params):  # It calculates how the temperature at each of our
 #  The test checks if the final temperature profile is close to this expected uniform value, within a specified tolerance.
 # without source term, the heat equation reduces to a pure diffusion problem, and the temperature should eventually become uniform throughout the tank. The test checks if the final temperature profile is close to this expected uniform value, within a specified tolerance.
 def run_diffusion_test(params, T_top=24, t_end=100, n_save=200):
-
     N = params["N"]
 
     # Initial condition : Linear gradient from base to top

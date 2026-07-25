@@ -131,7 +131,6 @@ def run_simulation(p=params, t_end=700, use_event=True):
 
 
 def plot_simulation(sol):
-
     t = sol.t
     X, Xt, S, N, E = sol.y
 

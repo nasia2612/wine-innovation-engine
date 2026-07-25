@@ -8,3 +8,7 @@ __pycache__/
 .vscode/
 bioSkills/
 install_packages.R
+data/winequality (1).names
+data/winequality-white (1).csv
+mlflow.db
+wine-innovation-engine.Rproj

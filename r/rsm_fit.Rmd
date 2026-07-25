@@ -88,8 +88,8 @@ contour(model_time, ~x1 + x2 + x3, image = TRUE)
 ## Fit for conversion
 
 ```{r model-conversion}
-model_conversion <- rsm(conversion ~ SO(x1, x2, x3), data = design_coded)
-summary(model_conversion)
+model_conv <- rsm(conversion ~ SO(x1, x2, x3), data = design_coded)
+summary(model_conv)
 ```
 
 Contour / perspective plots.
