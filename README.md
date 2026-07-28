@@ -232,4 +232,42 @@ illustrating the coupled nature of the ODE system beyond the directly edited ter
   second-order polynomial near the boundary of the design space.
 -
 
+# 04 attributes ml
 
+Source: UCI White Wine Quality dataset (Cortez et al., 2009). Portuguese vinho verde.
+Size: 4,898 rows → 3,961 after removing duplicate rows.
+Features: 11 physicochemical measurements (acidity, residual sugar, chlorides, SO₂, density, pH, sulphates, alcohol).
+Target: quality, the median score given by at least three sensory assessors on a 0–10 scale.
+
+This is treated as regression, not classification. A quality score of 6 is genuinely closer to 7 than to 3, and a classifier throws that ordering away. Metrics are RMSE and R².
+
+The process
+1)Hold out a test set. 20% of the data, stratified by quality. It is not looked at again until the very end, once per model.
+2)Three models. Ridge regression as a linear baseline, then Random Forest, then XGBoost.
+3)Everything inside a Pipeline. Scaling is fitted separately inside each cross-validation fold, never on the whole dataset first. Otherwise information from the validation fold leaks into the training step.
+4)Hyperparameter search. Grid search for Ridge (one parameter, and the problem is convex, so an exhaustive grid is enough). Optuna with a TPE sampler for the two tree models, where the search space is far too large to enumerate.
+5)Nested cross-validation for Random Forest and XGBoost 
+6)A separate final run on the full training set produces the model that actually gets deployed, logged to MLflow with an input signature.
+Everything tracked in MLflow (SQLite backend), with seeded samplers so the numbers are reproducible.
+
+
+# Why we choos nester cross-validation
+
+Nested CV separates the two jobs:
+
+The inner loop chooses hyperparameters. It only ever sees the training portion.
+The outer loop measures performance. Its held-out fold is invisible to the search.
+
+The tree models clearly beat the linear one because RMSE drops from 0.745 to 0.700 and R² rises from 0.27 to 0.40. This gap is much larger than the fold-to-fold variation, so it is real. It says something about the chemistry-> the relationship between composition and perceived quality is not linear.
+
+The winner is random forest Random Forest, but not because its RMSE is lower, the difference is within noise. The reasons are:
+
+Fewer hyperparameters (4 vs 7), so a smaller search space and less to go wrong.
+A smaller gap between its tuned CV score and its nested CV score (0.0015 vs 0.0059), meaning the hyperparameter search overfitted less.
+Simpler to retrain,
+
+Limitations
+-XGBoost received the same tuning budget as Random Forest despite a larger search space, so it may be under-tuned. 
+-we didnt use a formal significance test becuae  With only five outer folds 
+
+# we need to mention All Optuna studies use a seeded TPE sampler, all CV splits use a fixed random_state.

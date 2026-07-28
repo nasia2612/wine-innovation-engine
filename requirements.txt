@@ -22,3 +22,5 @@ ruff
 ipykernel==7.3.0
 mlruns/
 mlflow.db
+
+shap==0.52.0
