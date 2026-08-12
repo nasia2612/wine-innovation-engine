@@ -1,0 +1,23 @@
+artifact_path: /home/nasia/wine-innovation-engine/notebooks/mlruns/1/models/m-f29d1c6d3710467e9a94e01ac05d6475/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.skops
+    predict_fn: predict
+    python_version: 3.12.3
+  sklearn:
+    code: null
+    pickled_model: model.skops
+    serialization_format: skops
+    sklearn_version: 1.9.0
+    skops_trusted_types: null
+mlflow_version: 3.14.0
+model_id: m-f29d1c6d3710467e9a94e01ac05d6475
+model_size_bytes: 25095
+model_uuid: m-f29d1c6d3710467e9a94e01ac05d6475
+prompts: null
+run_id: 86bdacaa43cc47c9b2f1cc11a7edddbb
+utc_time_created: '2026-08-07 11:01:25.223863'

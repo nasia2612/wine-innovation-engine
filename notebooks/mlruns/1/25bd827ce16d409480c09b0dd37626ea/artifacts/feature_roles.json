@@ -1,0 +1,21 @@
+{
+  "levers": [
+    "free sulfur dioxide",
+    "sulphates",
+    "citric acid"
+  ],
+  "semi_levers": [
+    "fixed acidity",
+    "pH",
+    "residual sugar"
+  ],
+  "constrained_outcomes": [
+    "total sulfur dioxide",
+    "density",
+    "volatile acidity",
+    "alcohol"
+  ],
+  "context": [
+    "chlorides"
+  ]
+}
