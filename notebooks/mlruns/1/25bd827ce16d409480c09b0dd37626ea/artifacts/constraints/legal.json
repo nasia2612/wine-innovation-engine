@@ -1,0 +1,14 @@
+{
+  "total sulfur dioxide": {
+    "cap_low_sugar": 200.0,
+    "cap_high_sugar": 250.0,
+    "sugar_threshold_gL": 5.0,
+    "unit": "mg/L",
+    "source": "Reg (EU) 2019/934, Annex I, Part B"
+  },
+  "volatile acidity": {
+    "cap": 1.08,
+    "unit": "g/L acetic acid (18 meq/L)",
+    "source": "Reg (EU) 2019/934, Annex I, Part C"
+  }
+}
