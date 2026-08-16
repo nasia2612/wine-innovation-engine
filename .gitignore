@@ -12,3 +12,6 @@ data/winequality (1).names
 data/winequality-white (1).csv
 mlflow.db
 wine-innovation-engine.Rproj
+*.egg-info/
+build/
+dist/
