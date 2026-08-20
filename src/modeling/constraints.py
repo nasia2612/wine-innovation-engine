@@ -2,6 +2,8 @@ import json
 import numpy as np
 
 from mlflow.tracking import MlflowClient
+from pathlib import Path
+import mlflow
 
 
 def load_artifacts(run_id, client=None):
@@ -65,3 +67,11 @@ def check(x, bounds, mahal, density_band, legal):
         "d2": float(d2),
         "z_density": float(band),
     }
+
+
+def setup_mlflow():
+    repo = Path(__file__).resolve().parents[2]
+    db = repo / "notebooks" / "mlflow.db"
+    assert db.exists(), f"tracking DB not found at {db}"
+    mlflow.set_tracking_uri(f"sqlite:///{db}")
+    return repo
